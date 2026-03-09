@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PROBE — MMUKO OS</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #080c0f;
+    --surface:  #0d1419;
+    --border:   #1a2830;
+    --accent:   #00e5ff;
+    --accent2:  #ff3d57;
+    --yes:      #00ff9d;
+    --no:       #ff3d57;
+    --maybe:    #ffcc00;
+    --text:     #c8d8e0;
+    --dim:      #4a6070;
+    --mono:     'Share Tech Mono', monospace;
+    --sans:     'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Scanline overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,229,255,0.015) 2px,
+      rgba(0,229,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent), transparent 60%);
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #fff;
+  }
+
+  .logo span { color: var(--accent); }
+
+  .status-bar {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.7rem;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+  }
+
+  .status-bar .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--yes);
+    margin-right: 0.4rem;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 5rem 2rem 3rem;
+    max-width: 900px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .hero-tag {
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadein 0.5s 0.2s forwards;
+  }
+
+  .hero h1 {
+    font-family: var(--sans);
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    font-weight: 800;
+    line-height: 1;
+    color: #fff;
+    letter-spacing: -0.03em;
+    opacity: 0;
+    animation: fadein 0.6s 0.4s forwards;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--dim);
+    line-height: 1.8;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    opacity: 0;
+    animation: fadein 0.6s 0.6s forwards;
+  }
+
+  @keyframes fadein {
+    to { opacity: 1; transform: none; }
+    from { opacity: 0; transform: translateY(12px); }
+  }
+
+  /* ── Terminal block ── */
+  .terminal {
+    max-width: 700px;
+    margin: 3rem auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadein 0.6s 0.8s forwards;
+  }
+
+  .term-bar {
+    background: var(--border);
+    padding: 0.6rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--dim);
+  }
+
+  .term-bar .dot-r { background: var(--no); }
+  .term-bar .dot-y { background: var(--maybe); }
+  .term-bar .dot-g { background: var(--yes); }
+  .term-bar span { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  .term-body {
+    padding: 1.5rem;
+    font-size: 0.8rem;
+    line-height: 2;
+  }
+
+  .term-body .prompt { color: var(--dim); }
+  .term-body .cmd    { color: #fff; }
+  .term-body .yes    { color: var(--yes); }
+  .term-body .no     { color: var(--no); }
+  .term-body .maybe  { color: var(--maybe); }
+  .term-body .addr   { color: var(--accent); }
+  .term-body .comment { color: var(--dim); font-style: italic; }
+
+  /* ── States grid ── */
+  .states {
+    max-width: 700px;
+    margin: 0 auto 4rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .state-card {
+    background: var(--surface);
+    padding: 2rem 1.5rem;
+    text-align: center;
+  }
+
+  .state-card .label {
+    font-family: var(--sans);
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+  }
+
+  .state-card.yes  .label { color: var(--yes); }
+  .state-card.no   .label { color: var(--no); }
+  .state-card.maybe .label { color: var(--maybe); }
+
+  .state-card p {
+    font-size: 0.7rem;
+    color: var(--dim);
+    line-height: 1.6;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── Questions ── */
+  .questions {
+    max-width: 700px;
+    margin: 0 auto 4rem;
+    padding: 0 2rem;
+  }
+
+  .section-title {
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .q-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+
+  .q-item {
+    background: var(--surface);
+    padding: 1.2rem 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .q-item .q-key {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: #fff;
+    min-width: 60px;
+  }
+
+  .q-item .q-desc {
+    font-size: 0.72rem;
+    color: var(--dim);
+    line-height: 1.6;
+  }
+
+  /* ── About ── */
+  .about {
+    max-width: 700px;
+    margin: 0 auto 6rem;
+    padding: 0 2rem;
+    border-left: 2px solid var(--accent);
+    padding-left: 2rem;
+  }
+
+  .about p {
+    font-size: 0.8rem;
+    line-height: 2;
+    color: var(--dim);
+    margin-bottom: 1rem;
+  }
+
+  .about a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Live probe widget ── */
+  .probe-widget {
+    max-width: 700px;
+    margin: 0 auto 4rem;
+    padding: 0 2rem;
+  }
+
+  .probe-input-row {
+    display: flex;
+    gap: 0;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+
+  .probe-input-row input {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    outline: none;
+    padding: 0.8rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: #fff;
+  }
+
+  .probe-input-row select {
+    background: var(--border);
+    border: none;
+    outline: none;
+    padding: 0.8rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .probe-input-row button {
+    background: var(--accent);
+    border: none;
+    padding: 0.8rem 1.5rem;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    color: #000;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s;
+  }
+
+  .probe-input-row button:hover { background: #fff; }
+
+  .probe-result {
+    margin-top: 1px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 1rem 1.5rem;
+    font-size: 0.8rem;
+    min-height: 3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .probe-result .state-tag {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 2px;
+  }
+
+  .probe-result .state-tag.yes   { background: var(--yes);   color: #000; }
+  .probe-result .state-tag.no    { background: var(--no);    color: #fff; }
+  .probe-result .state-tag.maybe { background: var(--maybe); color: #000; }
+
+  .probe-result .result-text { color: var(--text); }
+  .probe-result .idle        { color: var(--dim); font-style: italic; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">PROBE <span>//</span> MMUKO OS</div>
+  <div class="status-bar">
+    <span><span class="dot"></span>SERVER ONLINE</span>
+    <span>OBINexus</span>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="hero-tag">MMUKO OS — Network Probing Protocol</div>
+  <h1>Ask the<br><em>right</em> question.</h1>
+  <p class="hero-sub">
+    PROBE is a three-state consensual network questioning system.<br>
+    WHO. WHAT. WHEN. WHERE. WHY. HOW.<br>
+    Returns YES, NO, or MAYBE.
+  </p>
+</div>
+
+<!-- Live probe widget -->
+<div class="probe-widget">
+  <div class="section-title">// Try it</div>
+  <div class="probe-input-row">
+    <input id="addr-input" type="text" placeholder="8.8.8.8 or hostname..." value="8.8.8.8" />
+    <select id="q-select">
+      <option>WHO</option>
+      <option>WHAT</option>
+      <option>WHEN</option>
+      <option selected>WHERE</option>
+      <option>WHY</option>
+      <option>HOW</option>
+    </select>
+    <button onclick="runProbe()">PROBE</button>
+  </div>
+  <div class="probe-result" id="probe-result">
+    <span class="idle">Enter an address and press PROBE...</span>
+  </div>
+</div>
+
+<!-- Terminal example -->
+<div class="terminal">
+  <div class="term-bar">
+    <span class="dot-r"></span>
+    <span class="dot-y"></span>
+    <span class="dot-g"></span>
+    &nbsp; probe.exe
+  </div>
+  <div class="term-body">
+    <div><span class="prompt">$ </span><span class="cmd">.\probe.exe 8.8.8.8</span></div>
+    <div><span class="prompt">  </span><span class="yes">[YES]</span>  WHO:   <span class="addr">8.8.8.8</span> → dns.google</div>
+    <div><span class="prompt">  </span><span class="yes">[YES]</span>  WHAT:  open ports [443]</div>
+    <div><span class="prompt">  </span><span class="no">[NO]</span>   WHEN:  last_seen=1773099653</div>
+    <div><span class="prompt">  </span><span class="yes">[YES]</span>  WHERE: <span class="addr">8.8.8.8</span> reachable=YES</div>
+    <br>
+    <div><span class="prompt">$ </span><span class="cmd">.\probe.exe 1.1.1.1 WHAT</span></div>
+    <div><span class="prompt">  </span><span class="yes">[YES]</span>  WHAT:  open ports [80 443 8080]</div>
+    <br>
+    <div><span class="prompt">$ </span><span class="cmd">.\probe.exe network 192.168.1.0/24</span></div>
+    <div><span class="prompt">  </span><span class="maybe">[MAYBE]</span> WHERE: 192.168.1.1 reachable=MAYBE</div>
+    <div><span class="prompt">  </span><span class="yes">[YES]</span>  WHERE: 192.168.1.5 reachable=YES</div>
+    <div class="comment">  # Found 2 active nodes</div>
+  </div>
+</div>
+
+<!-- States -->
+<div class="states">
+  <div class="state-card yes">
+    <div class="label">YES</div>
+    <p>Confirmed.<br>Node answered.</p>
+  </div>
+  <div class="state-card no">
+    <div class="label">NO</div>
+    <p>Not found.<br>Unreachable.</p>
+  </div>
+  <div class="state-card maybe">
+    <div class="label">MAYBE</div>
+    <p>Uncertain.<br>Probe deeper.</p>
+  </div>
+</div>
+
+<!-- Questions -->
+<div class="questions">
+  <div class="section-title">// Questions</div>
+  <div class="q-list">
+    <div class="q-item"><span class="q-key">WHO</span><span class="q-desc">Reverse DNS — who is this host?</span></div>
+    <div class="q-item"><span class="q-key">WHAT</span><span class="q-desc">Port scan — what is it running?</span></div>
+    <div class="q-item"><span class="q-key">WHEN</span><span class="q-desc">Last seen / reachability timestamp</span></div>
+    <div class="q-item"><span class="q-key">WHERE</span><span class="q-desc">Is it reachable on the network?</span></div>
+    <div class="q-item"><span class="q-key">WHY</span><span class="q-desc">Reserved — requires deeper probe</span></div>
+    <div class="q-item"><span class="q-key">HOW</span><span class="q-desc">HTTP response — like curl</span></div>
+  </div>
+</div>
+
+<!-- About -->
+<div class="about">
+  <div class="section-title">// Context</div>
+  <p>PROBE is the questioning layer of MMUKO OS — the digital operating system of the OBINexus project. Born from Biafran history and neurodivergent human rights advocacy. MMUKO means "Spirits of the Masquerades."</p>
+  <p>
+    Stack: NSIGII (connection layer) → PROBE (questions) → GOAI (gossip networking language)<br>
+    <a href="https://github.com/obinexusmk2/probe">github.com/obinexusmk2/probe</a>
+  </p>
+</div>
+
+<footer>
+  <span>PROBE — MMUKO OS // OBINexus</span>
+  <span>YES | NO | MAYBE</span>
+</footer>
+
+<script>
+  // Simple HTTP probe via fetch (simulates HOW question)
+  async function runProbe() {
+    const addr    = document.getElementById('addr-input').value.trim();
+    const question = document.getElementById('q-select').value;
+    const resultEl = document.getElementById('probe-result');
+
+    if (!addr) return;
+
+    resultEl.innerHTML = '<span class="idle">Probing...</span>';
+
+    // Simulate probe logic in browser
+    // In production this would call a backend endpoint
+    await new Promise(r => setTimeout(r, 600));
+
+    let state, detail;
+
+    if (question === 'HOW') {
+      // Try fetch as HTTP probe
+      try {
+        const url = addr.startsWith('http') ? addr : `http://${addr}`;
+        const res = await fetch(url, { mode: 'no-cors', signal: AbortSignal.timeout(3000) });
+        state = 'yes';
+        detail = `HOW: ${addr} → HTTP reachable`;
+      } catch(e) {
+        if (e.name === 'TimeoutError') {
+          state = 'maybe';
+          detail = `HOW: ${addr} → timeout`;
+        } else {
+          state = 'maybe';
+          detail = `HOW: ${addr} → ${e.message}`;
+        }
+      }
+    } else {
+      // Simulate other questions
+      const sim = {
+        'WHO':   ['yes',   `WHO: ${addr} → hostname.local`],
+        'WHAT':  ['yes',   `WHAT: ${addr} → open ports [80 443]`],
+        'WHEN':  ['maybe', `WHEN: ${addr} → last_seen=${Date.now()}`],
+        'WHERE': ['yes',   `WHERE: ${addr} → reachable=YES`],
+        'WHY':   ['maybe', `WHY: ${addr} → requires deeper probe`],
+      };
+      [state, detail] = sim[question] || ['maybe', 'Unknown question'];
+    }
+
+    resultEl.innerHTML = `
+      <span class="state-tag ${state}">${state.toUpperCase()}</span>
+      <span class="result-text">${detail}</span>
+    `;
+  }
+
+  // Enter key
+  document.getElementById('addr-input')
+    .addEventListener('keydown', e => { if (e.key === 'Enter') runProbe(); });
+</script>
+
+</body>
+</html>
